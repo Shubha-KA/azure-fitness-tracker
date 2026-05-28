@@ -1,5 +1,6 @@
 // Initialize Datadog tracing FIRST - must be before other imports
-const { tracer, logger } = require('./datadog');
+//const { tracer, logger } = require('./datadog');
+const logger = console;
 
 // Load environment variables
 require('dotenv').config();
