@@ -1,7 +1,7 @@
 // Initialize Datadog tracing FIRST - must be before other imports
 const { tracer, logger } = require('./datadog');
 
-// Environment configuration
+// Load environment variables
 require('dotenv').config();
 
 // Import required modules
@@ -14,31 +14,38 @@ const authRoutes = require('./routes/auth');
 const app = express();
 
 //
-// =========================
+// ========================================
 // Environment Variables
-// =========================
+// ========================================
 //
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-// MongoDB URI must come from environment variables
+// MongoDB connection string
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// Validate MongoDB URI
 if (!MONGODB_URI) {
   console.error('❌ MONGODB_URI environment variable is missing');
   process.exit(1);
 }
 
 //
-// =========================
+// ========================================
 // MongoDB Connection
-// =========================
+// ========================================
 //
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(MONGODB_URI);
+
+    const conn = await mongoose.connect(MONGODB_URI, {
+      ssl: true,
+      retryWrites: false,
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
 
     logger.info('Database connection established', {
       host: conn.connection.host,
@@ -62,19 +69,19 @@ const connectDB = async () => {
   }
 };
 
-// Initialize database connection
+// Initialize MongoDB connection
 connectDB();
 
 //
-// =========================
+// ========================================
 // Middleware
-// =========================
+// ========================================
 //
 
-// Parse JSON request body
+// Parse incoming JSON
 app.use(express.json());
 
-// Request logging middleware
+// HTTP Request Logging Middleware
 app.use((req, res, next) => {
 
   const start = Date.now();
@@ -88,7 +95,8 @@ app.use((req, res, next) => {
       url: req.url,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get('User-Agent'),
+      action: 'http_request'
     });
   });
 
@@ -96,15 +104,18 @@ app.use((req, res, next) => {
 });
 
 // Serve static files
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(
+  express.static(
+    path.join(__dirname, '..', 'public')
+  )
+);
 
 //
-// =========================
-// Routes
-// =========================
+// ========================================
+// API Debug Middleware
+// ========================================
 //
 
-// Debug logging for auth routes
 app.use('/api/auth', (req, res, next) => {
 
   logger.info('API AUTH REQUEST RECEIVED', {
@@ -119,20 +130,33 @@ app.use('/api/auth', (req, res, next) => {
   next();
 });
 
+//
+// ========================================
+// Routes
+// ========================================
+//
+
 // Authentication routes
 app.use('/api/auth', authRoutes);
 
 // Root route
 app.get('/', (req, res) => {
+
   res.sendFile(
-    path.join(__dirname, '..', 'public', 'pages', 'index.html')
+    path.join(
+      __dirname,
+      '..',
+      'public',
+      'pages',
+      'index.html'
+    )
   );
 });
 
 //
-// =========================
+// ========================================
 // Health Check Endpoint
-// =========================
+// ========================================
 //
 
 app.get('/health', (req, res) => {
@@ -140,14 +164,37 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
 //
-// =========================
+// ========================================
+// Global Error Handler
+// ========================================
+//
+
+app.use((err, req, res, next) => {
+
+  logger.error('Unhandled Application Error', {
+    error: err.message,
+    stack: err.stack,
+    action: 'unhandled_error'
+  });
+
+  console.error('❌ Unhandled Error:', err);
+
+  res.status(500).json({
+    success: false,
+    message: 'Internal Server Error'
+  });
+});
+
+//
+// ========================================
 // Start Server
-// =========================
+// ========================================
 //
 
 app.listen(PORT, HOST, () => {
@@ -159,6 +206,9 @@ app.listen(PORT, HOST, () => {
     action: 'server_started'
   });
 
-  console.log(`🚀 Server running on http://${HOST}:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('====================================');
+  console.log(`🚀 Fitness Tracker Server Started`);
+  console.log(`🌐 URL : http://${HOST}:${PORT}`);
+  console.log(`📊 Environment : ${process.env.NODE_ENV || 'development'}`);
+  console.log('====================================');
 });
