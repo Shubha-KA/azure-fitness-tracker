@@ -4,7 +4,6 @@
   "main": "app.js",
   "scripts": {
     "test": "exit 0"
-  }
 },
   "keywords": [],
   "author": "",
