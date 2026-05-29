@@ -1,4 +1,4 @@
-name: Deploy Fitnes Tracker to Azure
+name: Deploy Fitness Tracker to Azure
  
 on:
 
@@ -9,7 +9,7 @@ on:
     branches:
 
 
-      - master
+      - main
 
 
   workflow_dispatch:
