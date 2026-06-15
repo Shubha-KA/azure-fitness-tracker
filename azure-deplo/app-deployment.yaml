@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fitness-tracker-app
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: fitness-tracker-app
+
+  template:
+    metadata:
+      labels:
+        app: fitness-tracker-app
+
+    spec:
+      serviceAccountName: fitness-tracker-sa
+
+      containers:
+      - name: fitness-tracker-app
+
+        image: pulkit197/fitness_tracker-master-copy3-fitness-app:latest
+
+        ports:
+        - containerPort: 5000
+
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: fitness-app-secrets
+              key: mongodb-uri
+
+        - name: NODE_ENV
+          valueFrom:
+            secretKeyRef:
+              name: fitness-app-secrets
+              key: node-env
+
+        - name: PORT
+          valueFrom:
+            secretKeyRef:
+              name: fitness-app-secrets
+              key: port
+
+        - name: HOST
+          valueFrom:
+            secretKeyRef:
+              name: fitness-app-secrets
+              key: host
+
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: fitness-app-secrets
+              key: jwt-secret
+
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: fitness-kv-secrets
